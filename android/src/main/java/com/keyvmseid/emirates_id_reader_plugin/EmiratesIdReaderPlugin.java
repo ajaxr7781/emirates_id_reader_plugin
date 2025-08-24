@@ -2,8 +2,8 @@ package com.keyvmseid.emirates_id_reader_plugin;
 
 import android.content.Context;
 import android.os.AsyncTask;
-import android.util.Log;
 import android.util.Base64;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -16,11 +16,12 @@ import java.security.SecureRandom;
 import java.util.HashMap;
 import java.util.Map;
 
-import ae.emiratesid.idcard.toolkit.CardPublicData;
-import ae.emiratesid.idcard.toolkit.CardReader;
-import ae.emiratesid.idcard.toolkit.Toolkit;
-import ae.emiratesid.idcard.toolkit.ToolkitException;
-import ae.emiratesid.idcard.toolkit.models.NonModifiablePublicData;
+// === ICP Toolkit imports (common for 3.x SDKs) ===
+import com.eida.card.sdk.Toolkit;
+import com.eida.card.sdk.CardReader;
+import com.eida.card.sdk.response.CardPublicData;
+// If your SDK exports a specific exception, you can import it; we’ll just catch Throwable below.
+// import com.eida.card.sdk.ToolKitException;
 
 public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.MethodCallHandler {
   private static final String TAG = "EmiratesIdReaderPlugin";
@@ -48,29 +49,24 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
     channel.setMethodCallHandler(null);
     if (toolkit != null) {
-      try {
-        toolkit.cleanup();
-      } catch (ToolkitException e) {
-        Log.e(TAG, "Error cleaning up Toolkit: " + e.getMessage());
-      }
+      try { toolkit.cleanup(); } catch (Throwable t) { Log.e(TAG, "Toolkit cleanup error", t); }
       toolkit = null;
     }
   }
 
-  /** Generate a secure random 40-byte Base64 encoded requestId */
+  /** Generate a secure random 40-byte Base64 requestId */
   private String generateRequestId() {
     byte[] randomBytes = new byte[40];
     new SecureRandom().nextBytes(randomBytes);
     return Base64.encodeToString(randomBytes, Base64.NO_WRAP);
   }
 
-  /** Background task to read ID card data */
   private class ReadCardTask extends AsyncTask<Void, Void, Map<String, String>> {
-    private Result flutterResult;
-    private Context context;
+    private final Result flutterResult;
+    private final Context context;
     private String errorMessage;
 
-    public ReadCardTask(Result result, Context context) {
+    ReadCardTask(Result result, Context context) {
       this.flutterResult = result;
       this.context = context;
     }
@@ -81,15 +77,16 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
       CardReader cardReader = null;
       try {
         String configDirectory = context.getExternalFilesDir(null) + "/EIDAToolkit";
-        String logDirectory = context.getExternalFilesDir(null) + "/EIDAToolkit/logs";
-        String vgUrl = "https://10.10.10.1/VGPreProd/ValidationGateway";
+        String logDirectory    = context.getExternalFilesDir(null) + "/EIDAToolkit/logs";
+        String vgUrl           = "https://10.10.10.1/VGPreProd/ValidationGateway"; // TODO: set real VG URL
 
-        StringBuilder configParamsBuilder = new StringBuilder();
-        configParamsBuilder.append("config_directory=").append(configDirectory).append("\n");
-        configParamsBuilder.append("log_directory=").append(logDirectory).append("\n");
-        configParamsBuilder.append("vg_url=").append(vgUrl).append("\n");
+        StringBuilder params = new StringBuilder()
+            .append("config_directory=").append(configDirectory).append("\n")
+            .append("log_directory=").append(logDirectory).append("\n")
+            .append("vg_url=").append(vgUrl).append("\n");
 
-        toolkit = new Toolkit(true, configParamsBuilder.toString(), context);
+        // inProcessMode=true on Android
+        toolkit = new Toolkit(true, params.toString(), context);
 
         CardReader[] readers = toolkit.listReaders();
         if (readers == null || readers.length == 0) {
@@ -97,48 +94,44 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
           return null;
         }
 
-        cardReader = toolkit.getReaderWithEmiratesId();
-        if (cardReader == null) {
-          errorMessage = "No Emirates ID card found in reader.";
-          return null;
-        }
-
+        // Pick the first available reader (SDKs differ; avoid non-portable helpers)
+        cardReader = readers[0];
         cardReader.connect();
 
-        // 🔑 Generate secure requestId here
         String requestId = toolkit.prepareRequest(generateRequestId());
 
         CardPublicData publicData = cardReader.readPublicData(
-                requestId,
-                true,   // Non-modifiable data
-                true,   // Modifiable data
-                false,  // Photo
-                false,  // Signature
-                false   // Address
+            requestId,
+            true,   // readNonModifiableData
+            true,   // readModifiableData
+            false,  // readPhotography
+            false,  // readSignatureImage
+            false   // readAddress
         );
 
         if (publicData != null) {
-          NonModifiablePublicData nonModifiableData = publicData.getNonModifiablePublicData();
-          if (nonModifiableData != null) {
-            cardData.put("idNumber", nonModifiableData.getIdNumber());
-            cardData.put("cardNumber", nonModifiableData.getCardNumber());
-            cardData.put("fullNameEnglish", nonModifiableData.getFullNameEnglish());
-            cardData.put("fullNameArabic", nonModifiableData.getFullNameArabic());
-            cardData.put("dateOfBirth", nonModifiableData.getDateOfBirth());
-            cardData.put("gender", nonModifiableData.getGender());
-            cardData.put("nationalityEnglish", nonModifiableData.getNationalityEnglish());
-            cardData.put("expiryDate", nonModifiableData.getExpiryDate());
+          // Avoid binding to a specific class name; use 'var' (Java 10+) so we don’t care
+          var nonMod = publicData.getNonModifiablePublicData();
+          if (nonMod != null) {
+            cardData.put("idNumber",            safe(nonMod.getIdNumber()));
+            cardData.put("cardNumber",          safe(nonMod.getCardNumber()));
+            cardData.put("fullNameEnglish",     safe(nonMod.getFullNameEnglish()));
+            cardData.put("fullNameArabic",      safe(nonMod.getFullNameArabic()));
+            cardData.put("dateOfBirth",         safe(nonMod.getDateOfBirth()));
+            cardData.put("gender",              safe(nonMod.getGender()));
+            cardData.put("nationalityEnglish",  safe(nonMod.getNationalityEnglish()));
+            cardData.put("expiryDate",          safe(nonMod.getExpiryDate()));
           }
         } else {
-          errorMessage = "Failed to read public data.";
+          errorMessage = "Failed to read public data from the ID card.";
         }
 
-      } catch (Exception e) {
-        errorMessage = "Error: " + e.getMessage();
-        Log.e(TAG, "Exception: " + e.getMessage(), e);
+      } catch (Throwable t) {
+        errorMessage = "EIDA SDK error: " + t.getMessage();
+        Log.e(TAG, "EIDA SDK error", t);
       } finally {
         if (cardReader != null) {
-          try { cardReader.disconnect(); } catch (Exception ignored) {}
+          try { cardReader.disconnect(); } catch (Throwable ignore) {}
         }
       }
       return cardData;
@@ -148,11 +141,13 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
     protected void onPostExecute(Map<String, String> cardData) {
       if (errorMessage != null) {
         flutterResult.error("ERROR", errorMessage, null);
-      } else if (cardData.isEmpty()) {
+      } else if (cardData == null || cardData.isEmpty()) {
         flutterResult.error("ERROR", "No data extracted.", null);
       } else {
         flutterResult.success(cardData);
       }
     }
+
+    private String safe(String s) { return (s == null) ? "" : s; }
   }
 }
