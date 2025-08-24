@@ -2,59 +2,49 @@ group = "com.keyvmseid.emirates_id_reader_plugin"
 version = "1.0-SNAPSHOT"
 
 buildscript {
-    ext.kotlin_version = "2.1.0"
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.7.3")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
-    }
+  ext.kotlin_version = "2.1.0"
+  repositories { google(); mavenCentral() }
+  dependencies {
+    classpath("com.android.tools.build:gradle:8.7.3")
+    classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+  }
 }
 
+/* Ensure both root + allprojects see libs/ */
+repositories {
+  google(); mavenCentral()
+  flatDir { dirs 'libs', 'src/main/libs' }
+}
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        // Local libs directory for AARs (Toolkit + Reader plugins)
-        flatDir { dirs 'src/main/libs' }
-    }
+  repositories {
+    google(); mavenCentral()
+    flatDir { dirs 'libs', 'src/main/libs' }
+  }
 }
 
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
 
 android {
-    namespace "com.keyvmseid.emirates_id_reader_plugin"
-
-    compileSdk 35
-
-    defaultConfig {
-        // NFC/USB stacks are more reliable on 24+
-        minSdk 24
-        consumerProguardFiles "consumer-rules.pro"
+  namespace "com.keyvmseid.emirates_id_reader_plugin"
+  compileSdk 35
+  defaultConfig { minSdk 24; consumerProguardFiles "consumer-rules.pro" }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  kotlinOptions { jvmTarget = "17" }
+  packagingOptions {
+    resources {
+      excludes += ["META-INF/DEPENDENCIES","META-INF/LICENSE","META-INF/LICENSE.txt",
+                   "META-INF/license.txt","META-INF/NOTICE","META-INF/NOTICE.txt",
+                   "META-INF/notice.txt","META-INF/ASL2.0"]
     }
-
-    compileOptions {
-        // Flutter & AGP 8.7 expect Java 17
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+  }
 }
 
 dependencies {
-    // Add the EIDA Toolkit SDK
-    implementation(name: "EIDAToolkit", ext: "aar")
-
-    // Add NFC reader plugin (if required)
-    implementation(name: "nfcreader-plugin-release", ext: "aar")
-
-    // If you have other vendor reader plugins (Feitian, ACS, etc.),
-    // drop them in src/main/libs and add them here the same way:
-    // implementation(name: "feitianreader-plugin-release", ext: "aar")
+  // point directly to the files in android/libs/
+  implementation(files("libs/EIDAToolkit.aar"))
+  implementation(files("libs/nfcreader-plugin-release.aar"))
+  // (optional fallback)
+  // implementation(name: "EIDAToolkit", ext: "aar")
+  // implementation(name: "nfcreader-plugin-release", ext: "aar")
 }
