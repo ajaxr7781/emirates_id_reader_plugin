@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.keyvmseid.emirates_id_reader_plugin_example"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -24,7 +24,7 @@ android {
         applicationId = "com.keyvmseid.emirates_id_reader_plugin_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 24 // Explicitly set minSdkVersion to 24 as required by the plugin
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
