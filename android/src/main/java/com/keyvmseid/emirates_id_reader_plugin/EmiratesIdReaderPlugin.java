@@ -37,7 +37,8 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
   @Override
   public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
     if ("getPublicCardData".equals(call.method)) {
-      new ReadCardTask(result, applicationContext).executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+      new ReadCardTask(result, applicationContext)
+          .executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     } else {
       result.notImplemented();
     }
@@ -74,39 +75,37 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
       CardReader cardReader = null;
 
       try {
-        // ---- Build Toolkit config (adjust keys/values to your environment) ----
+        // ---- Build Toolkit config (adjust to vendor doc) ----
         String configDirectory = context.getExternalFilesDir(null) + "/EIDAToolkit";
         String logDirectory    = context.getExternalFilesDir(null) + "/EIDAToolkit/logs";
-        String vgUrl           = "https://10.10.10.1/VGPreProd/ValidationGateway"; // TODO: put the real VG URL
+        String vgUrl           = "https://10.10.10.1/VGPreProd/ValidationGateway"; // TODO set real VG URL
 
         StringBuilder params = new StringBuilder()
             .append("config_directory=").append(configDirectory).append("\n")
             .append("log_directory=").append(logDirectory).append("\n")
             .append("vg_url=").append(vgUrl).append("\n");
-        // add other vendor-required flags here, e.g. read_publicdata_offline=true
+        // add other flags if required (e.g., read_publicdata_offline=true)
 
-        // ---- Init & connect Toolkit ----
+        // inProcessMode = true on Android
         toolkit = new Toolkit(true, params.toString(), context);
-        toolkit.connect();
 
-        // ---- Find a reader ----
+        // ---- Reader handling ----
         CardReader[] readers = toolkit.listReaders();
         if (readers == null || readers.length == 0) {
           errorMessage = "No compatible ID card readers found.";
           return null;
         }
-
         cardReader = readers[0];
         cardReader.connect();
 
-        // ---- Prepare request + read public data ----
         String requestId = toolkit.prepareRequest(generateRequestId());
 
+        // Signature: readPublicData(String, Z, Z, Z, Z, Z) -> CardPublicData
         CardPublicData pub = cardReader.readPublicData(
             requestId,
             true,   // readNonModifiableData
             true,   // readModifiableData
-            true,   // readPhotography (set true if you want photo; false to skip)
+            true,   // readPhotography (set false if you don't need photo)
             false,  // readSignatureImage
             false   // readAddress
         );
@@ -116,38 +115,33 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
           return null;
         }
 
-        // ---- Map out result ----
         Map<String, Object> cardData = new HashMap<>();
 
-        // From CardPublicData (per your AAR): idNumber + cardNumber + optional photo
+        // From CardPublicData (per your AAR)
         cardData.put("idNumber",   safe(pub.getIdNumber()));
         cardData.put("cardNumber", safe(pub.getCardNumber()));
 
+        // Photo returns String (already base64 in this AAR)
         try {
-          byte[] photo = pub.getCardHolderPhoto(); // may be null if not requested/available
-          if (photo != null && photo.length > 0) {
-            cardData.put("photoBase64", Base64.encodeToString(photo, Base64.NO_WRAP));
+          String photoB64 = pub.getCardHolderPhoto(); // may be null if not requested/available
+          if (photoB64 != null && !photoB64.isEmpty()) {
+            cardData.put("photoBase64", photoB64);
           }
         } catch (Throwable ignore) { /* optional */ }
 
-        // From NonModifiablePublicData: names, nationality, dob, gender, expiry, etc.
+        // From NonModifiablePublicData
         NonModifiablePublicData nonMod = pub.getNonModifiablePublicData();
         if (nonMod != null) {
-          // Names
-          putIfNotEmpty(cardData, "fullNameEnglish",  nonMod.getFullNameEnglish());
-          putIfNotEmpty(cardData, "fullNameArabic",   nonMod.getFullNameArabic());
-          // Nationality
+          putIfNotEmpty(cardData, "fullNameEnglish",    nonMod.getFullNameEnglish());
+          putIfNotEmpty(cardData, "fullNameArabic",     nonMod.getFullNameArabic());
           putIfNotEmpty(cardData, "nationalityEnglish", nonMod.getNationalityEnglish());
           putIfNotEmpty(cardData, "nationalityArabic",  nonMod.getNationalityArabic());
           putIfNotEmpty(cardData, "nationalityCode",    nonMod.getNationalityCode());
-          // Demographics
-          putIfNotEmpty(cardData, "dateOfBirth", nonMod.getDateOfBirth());
-          putIfNotEmpty(cardData, "gender",      nonMod.getGender());
-          putIfNotEmpty(cardData, "expiryDate",  nonMod.getExpiryDate());
-          // There are more fields (placeOfBirth, titles, etc.) in this class if needed.
+          putIfNotEmpty(cardData, "dateOfBirth",        nonMod.getDateOfBirth());
+          putIfNotEmpty(cardData, "gender",             nonMod.getGender());
+          putIfNotEmpty(cardData, "expiryDate",         nonMod.getExpiryDate());
         }
 
-        // success
         return cardData;
 
       } catch (Throwable t) {
@@ -156,7 +150,6 @@ public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.Meth
 
       } finally {
         try { if (cardReader != null) cardReader.disconnect(); } catch (Throwable ignore) {}
-        try { if (toolkit != null) toolkit.disconnect(); } catch (Throwable ignore) {}
         try { if (toolkit != null) toolkit.cleanup(); } catch (Throwable ignore) {}
       }
 
