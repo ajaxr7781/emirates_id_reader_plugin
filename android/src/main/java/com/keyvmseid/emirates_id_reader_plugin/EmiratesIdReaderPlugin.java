@@ -17,9 +17,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 // === ICP Toolkit imports (common for 3.x SDKs) ===
-import ae.emiratesid.idcard.toolkit;
+//import ae.emiratesid.idcard.toolkit.Toolkit;
+//import ae.emiratesid.idcard.toolkit.CardReader;
+//import ae.emiratesid.idcard.toolkit.ToolKitException;   // present in your AAR
+//import ae.emiratesid.idcard.datamodel.*;               // includes the public-data model class
+import ae.emiratesid.idcard.toolkit.Toolkit;
 import ae.emiratesid.idcard.toolkit.CardReader;
+import ae.emiratesid.idcard.toolkit.ToolkitException;
+import ae.emiratesid.idcard.toolkit.datamodel.NonModifiablePublicData;
 import ae.emiratesid.idcard.toolkit.datamodel.CardPublicData;
+
 // If your SDK exports a specific exception, you can import it; we’ll just catch Throwable below.
 // import ae.emiratesid.idcard.toolkit.ToolKitException;
 
