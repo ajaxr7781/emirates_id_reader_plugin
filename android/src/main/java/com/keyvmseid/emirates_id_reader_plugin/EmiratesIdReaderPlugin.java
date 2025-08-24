@@ -18,7 +18,7 @@ import java.util.Map;
 
 // === ICP Toolkit imports (common for 3.x SDKs) ===
 import ae.emiratesid.idcard.toolkit.Toolkit;
-import ae.emiratesid.idcard.toolkit.CardReader;
+import ae.emiratesid.idcard.toolkit.datamodel.CardReader;
 import ae.emiratesid.idcard.toolkit.response.CardPublicData;
 // If your SDK exports a specific exception, you can import it; we’ll just catch Throwable below.
 // import ae.emiratesid.idcard.toolkit.ToolKitException;
