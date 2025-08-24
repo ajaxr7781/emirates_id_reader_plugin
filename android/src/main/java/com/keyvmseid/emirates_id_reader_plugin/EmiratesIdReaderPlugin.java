@@ -17,11 +17,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 // === ICP Toolkit imports (common for 3.x SDKs) ===
-import com.eida.card.sdk.Toolkit;
-import com.eida.card.sdk.CardReader;
-import com.eida.card.sdk.response.CardPublicData;
+import ae.emiratesid.idcard.toolkit.Toolkit;
+import ae.emiratesid.idcard.toolkit.CardReader;
+import ae.emiratesid.idcard.toolkit.response.CardPublicData;
 // If your SDK exports a specific exception, you can import it; we’ll just catch Throwable below.
-// import com.eida.card.sdk.ToolKitException;
+// import ae.emiratesid.idcard.toolkit.ToolKitException;
 
 public class EmiratesIdReaderPlugin implements FlutterPlugin, MethodChannel.MethodCallHandler {
   private static final String TAG = "EmiratesIdReaderPlugin";
