@@ -42,8 +42,8 @@ android {
 
 dependencies {
   // point directly to the files in android/libs/
-  compileOnly(files("libs/EIDAToolkit.aar"))
-  compileOnly(files("libs/nfcreader-plugin-release.aar"))
+  apifiles("libs/EIDAToolkit.aar"))
+  apifiles("libs/nfcreader-plugin-release.aar"))
   // (optional fallback)
   // implementation(name: "EIDAToolkit", ext: "aar")
   // implementation(name: "nfcreader-plugin-release", ext: "aar")
